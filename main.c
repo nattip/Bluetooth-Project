@@ -1,63 +1,65 @@
-/****************************************
- * Written by Natalie Tipton and Andrew Deradoorian
- * EGR 436 (102)
- * Dr. Brakora
- * Lab 1
- * 1/7/19
- * This code receives data from UART communication
- *      from the MSP432 to display the current tempo.
- *      It then takes user input through a single key stroke
- *      to increase or decrease the bpm by 2 or reset
- *      the tempo to 60. It then sends info through UART
- *      back to the MSP432 to make the adjustments.
- ****************************************/
+#include "msp.h"
+#include <stdio.h>
+#include <timersinit.h>
 
-#include <stdio.h>  //include necessary libraries
-#include <stdlib.h>
-#include <windows.h>
-#include <conio.h>
-#include <string.h>
-#include <inttypes.h>
-#include "SerialCom.h"
-
-
-int main()
+/**
+ * main.c
+ */
+void UART0_init(void);
+uint16_t changedSpeed=60;
+void main(void)
 {
-    unsigned char input;    //initialize variables and arrays
-    int n = 1;
-    unsigned char readBuff[1]={0};
-    unsigned char writeBuff[1]={0};
-    DWORD dwBytesRead = 0;
-    DWORD dwBytesWrite = 0;
+    __disable_irq();
+    uint16_t TopValue=4096;
+    uint16_t basespeed=60;
+    uint16_t ratio;
 
+    uint16_t AlteredCount;
 
-    HANDLE hSerial = handle_Init();     //set up handle tag to set up COM port
-    dcb_Params(hSerial);                    //setup DCB parameters to set state of COM port
+	WDT_A->CTL = WDT_A_CTL_PW | WDT_A_CTL_HOLD;		// stop watchdog timer
 
-   //print instructions to user
-    printf("Please press:\n*u* to increase tempo,\n*d* to decrease tempo,\n*r* to reset tempo to 60 bpm.\n*x to exit system.\n");
+	P2->SEL1 &=~1;
+	P2->SEL0 &=~1;
+	P2->DIR |=1;
 
-    while(1){       //infinite while loop
-    input = getch();    //get character from user input without needing to press enter
+	NVIC_SetPriority(TA1_0_IRQn,3);
+	NVIC_EnableIRQ(TA1_0_IRQn);
 
-    //if user entered u, d, or r
-    if((input == 'u' && readBuff[0] <= 252)| (input == 'd' && readBuff[0] >=6) | input == 'r'){
-        printf("\n\nInput: %c",input);  //print the user's intput
-        writeBuff[0] =  input;  //saves input into write buffer
+	UART0_init();
+	timerA_Init();
 
-        if(!WriteFile(hSerial, writeBuff, n, &dwBytesWrite, NULL))  //write to user input to UART
-            printf("Error writing UART\n");     //tell user if writing did not work
+	while(1)
 
-        if(!ReadFile(hSerial, readBuff, n, &dwBytesRead, NULL))   //read from UART
-            printf("Error reading UART\n");     //tell user if reading did not work
+{
+	   ratio=(100*basespeed)/changedSpeed;
+	   AlteredCount=(TopValue*ratio)/100;
+	   TIMER_A1->CCR[0]=AlteredCount/2;
 
-        else printf("\nCurrent Tempo: %d",readBuff[0]);}        //if reading did work, write current tempo to user
+//    while((TIMER_A1->CCTL[0] & 1)==0);
+  //      TIMER_A1->CCTL[0] &=~1;
+    //    P2->OUT ^=2;
 
-    else if(input == 'x')   //if user entered x
-        break;  //leave while loop
-    }
+}
+}
 
-    CloseHandle(hSerial);   //close COM port to the user
+void TA1_0_IRQHandler (void)
+{
+    TIMER_A1->CCTL[0] &=~1;
+    P2->OUT ^=1;
 
-    return 0;
+    while(!(EUSCI_A0->IFG & 0x02)) {}
+    EUSCI_A0->TXBUF=changedSpeed;
+    while(!(EUSCI_A0->IFG & 0x02)) {}
+    EUSCI_A0->TXBUF='\n';
+}
+
+void UART0_init(void)
+{
+    EUSCI_A0->CTLW0 |=1;
+    EUSCI_A0->MCTLW=0;
+    EUSCI_A0->CTLW0=0x0081;
+    EUSCI_A0->BRW=26;
+    P1->SEL0 |=0x0C;
+    P1->SEL1 &=~ 0x0C;
+    EUSCI_A0->CTLW0 &=~ 1;
 }
