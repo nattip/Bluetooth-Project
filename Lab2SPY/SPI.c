@@ -14,9 +14,12 @@
 #include <string.h>
 #include <SPI.h>
 
-int RXData;
-int TXData;
-
+uint8_t RXData;
+uint8_t TXData;
+uint8_t SPIFlag;
+uint8_t SPIFlag2;
+uint8_t j;
+char helpme[100]={0};
 void SPI_Init(void)
 {
     WDT_A->CTL = WDT_A_CTL_PW |             // Stop watchdog timer
@@ -24,9 +27,7 @@ void SPI_Init(void)
 
     P1->OUT &= ~BIT0;
     P1->DIR |= BIT0;                        // Set P1.0 LED
-
     P2->DIR |= BIT5;                        //CS Bit
-
     P2->OUT &=~BIT5;
     P1->SEL0 |= BIT5 | BIT6 | BIT7;         // Set P1.5, P1.6, and P1.7 as
                                             // SPI pins functionality
@@ -35,69 +36,140 @@ void SPI_Init(void)
     EUSCI_B0->CTLW0 = EUSCI_B_CTLW0_SWRST | // Remain eUSCI state machine in reset
     EUSCI_B_CTLW0_MST |             // Set as SPI master
     EUSCI_B_CTLW0_SYNC |            // Set as synchronous mode
-    EUSCI_B_CTLW0_CKPL |            // Set clock polarity high
+    EUSCI_B_CTLW0_CKPH |            // Set clock polarity high
     EUSCI_B_CTLW0_MSB;              // MSB first
 
     EUSCI_B0->CTLW0 |= EUSCI_B_CTLW0_SSEL__ACLK; // ACLK
     EUSCI_B0->BRW = 0x01;                   // /2,fBitClock = fBRCLK/(UCBRx+1).
     EUSCI_B0->CTLW0 &= ~EUSCI_B_CTLW0_SWRST;// Initialize USCI state machine
 
+
     __enable_irq();
+   EUSCI_B0->IE |= EUSCI_B_IE_TXIE;    // Enable TX interrupt
+   EUSCI_B0->IFG |= EUSCI_B_IFG_TXIFG;// Clear TXIFG flag
 
-
+//    TXData=00;
     NVIC->ISER[0] = 1 << ((EUSCIB0_IRQn) & 31);
-    //SCB->SCR &= ~SCB_SCR_SLEEPONEXIT_Msk;
+
+
 }
 
 void EUSCIB0_IRQHandler(void)
 {
     if (EUSCI_B0->IFG & EUSCI_B_IFG_TXIFG)
     {
-        EUSCI_B0->TXBUF = TXData;           // Transmit characters
-        EUSCI_B0->IE &= ~EUSCI_B__TXIE;
-        // Wait till a character is received
-        while (!(EUSCI_B0->IFG & EUSCI_B_IFG_RXIFG));
-        RXData = EUSCI_B0->RXBUF;
-        // Clear the receive interrupt flag
-        EUSCI_B0->IFG &= ~EUSCI_B_IFG_RXIFG;
+        SPIFlag=1;
+        EUSCI_B0->IFG &=~EUSCI_B_IFG_TXIFG;
     }
+    if(EUSCI_B0->IFG & EUSCI_B_IFG_RXIFG)
+    {
+        SPIFlag2=1;
+        EUSCI_B0->IFG &= ~(EUSCI_B_IFG_RXIFG|EUSCI_B_IFG_TXIFG);
+
+    }
+
 }
 
 
 void SPI_WriteLatch(void)
 {
-    TXData=0x6;
-}
-void SPI_Write(WriteBuffer *buff1)
-{
-    uint8_t i;
-    //Operational Code for write.
-    EUSCI_B0->IFG |= EUSCI_B_IFG_TXIFG;// Clear TXIFG flag
-    EUSCI_B0->IE |= EUSCI_B_IE_TXIE;    // Enable TX interrupt
-    TXData=0x2
-    //Transmitting the address on flash chip.
-    EUSCI_B0->IFG |= EUSCI_B_IFG_TXIFG;// Clear TXIFG flag
-    EUSCI_B0->IE |= EUSCI_B_IE_TXIE;    // Enable TX interrupt
-    TXData=(buff1->address & 0xFF00)>>8;
-    TXData=(buff1->address & 0x00FF);
-    //Transmitting actual data to the specific address.
+    CSLow;
 
-    for(i=0; i<buff1->size; i++)
-        EUSCI_B0->IFG |= EUSCI_B_IFG_TXIFG;// Clear TXIFG flag
-        EUSCI_B0->IE |= EUSCI_B_IE_TXIE;    // Enable TX interrupt
-        TXData=buff1->data[i];
-    }
-}
+    EUSCI_B0->TXBUF = 0b00000110;
+    while(!SPIFlag);
+    SPIFlag=0;
 
-void SPI_Read(void)
-{
-    TXData=0x3
+    CSHigh;
 }
 
 void SPI_WriteUnlatch(void)
 {
-    TXData=0x4
+    CSLow;
+
+    EUSCI_B0->TXBUF = 0b00000100;
+    while(!SPIFlag);
+    SPIFlag=0;
+
+    CSHigh;
 }
+
+void SPI_Write(WriteBuffer* buff1)
+{
+    uint16_t i;
+    CSLow;
+
+    EUSCI_B0->TXBUF = 0b00000010;
+    while(!SPIFlag);
+    SPIFlag=0;
+
+
+    //Transmitting the address on flash chip.
+    //EUSCI_B0->TXBUF = (buff1->address & 0x0000)>>8;
+    EUSCI_B0->TXBUF = (buff1->address & 0xFF00);
+    while(!SPIFlag);
+    SPIFlag=0;
+    EUSCI_B0->TXBUF = (buff1->address & 0xFF);
+    while(!SPIFlag);
+    SPIFlag=0;
+    //Transmitting actual data to the specific address.
+
+    EUSCI_B0->TXBUF = (buff1->data[0]);
+        while(!SPIFlag);
+        SPIFlag=0;
+
+        EUSCI_B0->TXBUF = (buff1->data[1]);
+            while(!SPIFlag);
+            SPIFlag=0;
+
+    for(i=0; i<buff1->size; i++)
+    {
+        EUSCI_B0->TXBUF = buff1->data[i];
+        while(!SPIFlag);
+        SPIFlag=0;
+    }
+    CSHigh;
+}
+
+
+void SPI_Read(poem* poem1 )
+{
+     uint16_t i;
+   // uint8_t first;
+    char ReadBuff[100]={1};
+
+
+
+    EUSCI_B0->TXBUF = (poem1->startAddress & 0xFF00)>>8;
+    while(!SPIFlag);
+    SPIFlag=0;
+    EUSCI_B0->TXBUF =(poem1->startAddress & 0xFF);
+    while(!SPIFlag);
+    SPIFlag=0;
+
+    for(i=0; i<poem1->size; i++)
+    {
+        TXData=0b00000000;
+        EUSCI_B0->TXBUF = TXData;
+        while(!SPIFlag);
+        SPIFlag=0;
+       // while(SPIFlag2);
+        RXData = EUSCI_B0->RXBUF;
+        ReadBuff[i]=EUSCI_B0->RXBUF;
+    }
+    memcpy(poem1->title,ReadBuff,100);
+    CSHigh;
+
+}
+void SPI_ReadCommand(void)
+{
+    CSLow;
+    TXData=0b00000011;
+    EUSCI_B0->TXBUF = TXData;
+    while(!SPIFlag);
+    SPIFlag=0;
+
+}
+
 
 
 

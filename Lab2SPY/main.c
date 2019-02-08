@@ -19,33 +19,49 @@ extern int TXData;
 void main(void)
 {
 
-    int i;
+    uint8_t i;
     uint8_t previousData;
-
+    char buffer[1000]={0};
 
     SPI_Init();
+
+    char dataString []="DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD";
+
+    WriteBuffer FlashWrite;
+    FlashWrite.address=0000000000000000;
+    strcpy(FlashWrite.data, dataString);
+    FlashWrite.size=sizeof(dataString);
+
+    poem poem1;
+    poem1.startAddress=0x0000;
+    poem1.size=99;
+    poem1.title;
+
+int pick=0;
     while(1)
        {
 
 
-           EUSCI_B0->IFG |= EUSCI_B_IFG_TXIFG;// Clear TXIFG flag
-           EUSCI_B0->IE |= EUSCI_B_IE_TXIE;    // Enable TX interrupt
-           TXData = 0x9F;
-           // Check the received data
-           previousData = TXData - 1;
+      if (pick==0)
+      {
+      SPI_WriteLatch();
+      SPI_Write(&FlashWrite);
+ //     SPI_WriteUnlatch();
+      }
 
-           if (RXData != (previousData))
-           {
-               // If the Received data is not equal to TXData-1, then
-               // Set P1.0 LED
-               P1->OUT |= BIT0;
-           }
-           else
-           {
-               P1->OUT &= ~BIT0;
-           }
-           for (i = 2000; i > 0; i--);         // Delay before next transmission
-           TXData=0x9F;                           // Increment transmit data
+      else if (pick==1)
+      {
+
+          SPI_ReadCommand();
+          SPI_Read(&poem1);
+
+      }
+
+
+      //  CSHigh;
+
+
+
        }
 }
 
