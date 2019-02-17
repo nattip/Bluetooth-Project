@@ -1,6 +1,14 @@
 import serial
 import time
 
+ser = serial.Serial(
+    port='COM7',
+    baudrate=115200,
+    parity=serial.PARITY_NONE,
+    stopbits=serial.STOPBITS_ONE,
+    bytesize=serial.EIGHTBITS
+)
+
 
 def main():
     print("UART Thing")
@@ -49,26 +57,28 @@ def memory():
 def write():
     filename = input("What is the file path? ")
     file = open(filename, "r")
+    #content = "0-"
     content = file.read()
-    ser = serial.Serial(
-        port='\\\\.\\COM7',
-        baudrate=115200,
-        parity=serial.PARITY_NONE,
-        stopbits=serial.STOPBITS_ONE,
-        bytesize=serial.EIGHTBITS
-    )
-
+    command = "0"
+    size = len(content)
+    length = str(size)
     if ser.isOpen():
         ser.close()
     ser.open()
     ser.isOpen()
-    ser.write(content)
-    out = ''
+    ser.write(command.encode())
+    #out = ''
+    #time.sleep(1)
+    ser.write(length.encode())
+    ser.write(content.encode())
 
     time.sleep(1)
-    while ser.inWaiting() > 0:
-        out += ser.read(40)
+    # while ser.inWaiting() > 0:
+    #     out += ser.read(40)
 
-    if out != '':
-        print(">>{}".format(out))
+    # if out != '':
+    print(">>{}".format(length))
     ser.close()
+
+if __name__ == '__main__':
+    main()
