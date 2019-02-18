@@ -56,6 +56,7 @@ void SPI_Init(void)
 
 }
 
+//IRQ for spi euscib0
 void EUSCIB0_IRQHandler(void)
 {
     if (EUSCI_B0->IFG & EUSCI_B_IFG_TXIFG)
@@ -71,8 +72,9 @@ void EUSCIB0_IRQHandler(void)
     }
 
 }
-
-
+/*
+SPI_WriteLatch sends the write latch command to the flash device. Allowing the user to write to the device.
+*/
 void SPI_WriteLatch(void)
 {
     CSLow;
@@ -83,7 +85,9 @@ void SPI_WriteLatch(void)
 
     CSHigh;
 }
-
+/*
+SPI_WriteUnlatch, not used because toggling the CS after a write related command also unlatches it.
+*/
 void SPI_WriteUnlatch(void)
 {
     CSLow;
@@ -94,7 +98,9 @@ void SPI_WriteUnlatch(void)
 
     CSHigh;
 }
-
+/*
+SPI_Write sends the write command and the poem.
+*/
 void SPI_Write(poem* buff1)
 {
     uint16_t i;
@@ -124,6 +130,9 @@ void SPI_Write(poem* buff1)
     CSHigh;
 }
 
+/*
+SPI_WriteIndex writes index.
+*/
 void SPI_WriteIndex(index* buff1)
 {
     uint16_t i;
@@ -154,8 +163,9 @@ void SPI_WriteIndex(index* buff1)
     }
     CSHigh;
 }
-
-
+/*
+SPI_Read reads from flash.
+*/
 void SPI_Read(readPoem* poem1 )
 {
      uint16_t i;
@@ -182,6 +192,9 @@ void SPI_Read(readPoem* poem1 )
     CSHigh;
 
 }
+/*
+SPI_ReadCommand sends the read command to the device.
+*/
 void SPI_ReadCommand(void)
 {
     CSLow;

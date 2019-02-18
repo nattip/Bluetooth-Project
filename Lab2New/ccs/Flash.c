@@ -10,7 +10,6 @@
 #include <timers.h>
 #include <IO.h>
 #include <UART.h>
-#include "utringbuffer.h"
 #include <string.h>
 #include <SPI.h>
 #include <Flash.h>
@@ -52,6 +51,9 @@ char* pointpoint2;
 uint8_t j;
 uint8_t k;
 
+/*
+FlashRead sets up for flash to read the correct
+*/
 int FlashRead(readPoem* read, uint8_t readSlot)
 {
     char* str;
@@ -98,7 +100,9 @@ int FlashIndex(poem* index)
 {
     ;
 }
-
+/*
+FlashMemory calculates the amount of memory left.
+*/
 uint16_t FlashMemory(readPoem* memory)
 {
     uint8_t LastSlot = 0;
@@ -142,6 +146,10 @@ uint16_t FlashMemory(readPoem* memory)
     return Extra;
 
 }
+
+/*
+FlashErase erases a slot of memory.
+*/
 
 int FlashErase(readPoem* erase, uint8_t indexSlot)
 {
@@ -245,6 +253,9 @@ int FlashClear(poem* clear)
     ;
 }
 
+/*
+FlashTitle finds the title from the poem.
+*/
 int FlashTitle(poem* title)
 {
 //    char titleTrigger[5] = "\n\n";
@@ -261,6 +272,10 @@ int FlashTitle(poem* title)
 
 }
 
+
+/*
+FlashCheckIndex checks for the next open slot of memory.
+*/
 int FlashCheckIndex(void)
 {
     uint8_t i;

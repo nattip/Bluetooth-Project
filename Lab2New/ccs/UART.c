@@ -11,7 +11,6 @@
 #include <timers.h>
 #include <IO.h>
 #include <UART.h>
-#include "utringbuffer.h"
 #include <string.h>
 #include <SPI.h>
 #include <Flash.h>

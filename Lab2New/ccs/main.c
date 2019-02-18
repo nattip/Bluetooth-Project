@@ -3,7 +3,6 @@
 #include <timers.h>
 #include <IO.h>
 #include <UART.h>
-#include "utringbuffer.h"
 #include <string.h>
 #include <SPI.h>
 #include <Flash.h>
@@ -85,16 +84,10 @@ void main(void)
     while (1)
     {
 
-           // wut=UART0_Read();
-//        while(1)
-//        {
-//            while(!(EUSCI_A2->IFG & 0x01)) {}   //KINDA WORKS.
-//            bs=EUSCI_A2->RXBUF;
-//           while(!(EUSCI_A2->IFG & 0x02)) {}   //wait until UART send suffer is full
-//           EUSCI_A2->TXBUF=bstx;
-//
-//        }
+        //The either inputs from the USB UART line, or the BLE line
+        //Depending on the users input different flags are triggered
 
+        //Writing command
         if(wut=='0')
         {
             EUSCI_A0->IE &=~ 0x01; //Interrupt disable
@@ -115,6 +108,7 @@ void main(void)
             wut='9';
             BLEwut='9';
         }
+        //Read command
         else if(wut=='1' || BLEwut=='1')
         {
             EUSCI_A0->IE &=~ 0x01; //Interrupt disable
@@ -132,8 +126,8 @@ void main(void)
             MemorySlot=t-'0';
             wut='9';
             BLEwut='9';
-
         }
+        //Index command
         else if(wut=='2' || BLEwut =='2')
         {
             EUSCI_A0->IE &=~ 0x01; //Interrupt disable
@@ -143,6 +137,7 @@ void main(void)
             BLEwut='9';
 
         }
+        //Memory command
         else if(wut=='5' || BLEwut =='5')
         {
             EUSCI_A0->IE &=~ 0x01; //Interrupt disable
@@ -152,6 +147,7 @@ void main(void)
             wut='9';
             BLEwut='9';
         }
+        //Erase command
         else if(wut=='3'|| BLEwut == '3')
         {
             EUSCI_A0->IE &=~ 0x01; //Interrupt disable
@@ -170,6 +166,7 @@ void main(void)
             wut='9';
             BLEwut='9';
         }
+        //Clear command
         else if(wut=='4' || BLEwut== '4')
         {
             EUSCI_A0->IE &=~ 0x01; //Interrupt disable
@@ -179,6 +176,7 @@ void main(void)
             BLEwut='9';
         }
 
+        //Start of storing poem onto flash
         if (StoreFlag == 1)
         {
             if (ClearCheck == 1)
@@ -193,6 +191,7 @@ void main(void)
             poem1.size = strlen(poem1.data);
             FlashTitle(&poem1);
 
+            //From slot 1-10
             Storage1.slot = FlashCheckIndex(); //Checks for the first available slot for Index value.
             if (Storage1.slot < 11 && Storage1.slot != 0)
             {
@@ -233,12 +232,14 @@ void main(void)
                 }
                 EUSCI_A0->IE |= 0x01;
             }
+            //First slot of memory
             if (Storage1.slot == 0)
             {
                 poem1.startAddress = 500;
             }
 
-            if (Storage1.slot < 11) //Write index to available slow
+            //Parsing up the title, address and size.
+            if (Storage1.slot < 11)
             {
                 strcpy(Storage1.title, poem1.title);
                 strcat(Storage1.title, "//");
@@ -249,6 +250,7 @@ void main(void)
                 strcat(Storage1.title, sizeBuff);
 
                 Storage1.address = Storage1.slot * 50;
+                //Writing index
                 SPI_WriteLatch();
                 SPI_WriteIndex(&Storage1);
 
@@ -285,7 +287,7 @@ void main(void)
                 strncpy(sizeStore, size, 4);
                 addressInt = strtol(addressStore, &pointpoint1, 10);
                 sizeInt = strtol(sizeStore, &pointpoint2, 10);
-
+                //Writing poem to starting flash
                 SPI_WriteLatch();
                 SPI_Write(&poem1);
                 poem1.startAddress = addressInt + sizeInt + 1;
@@ -300,9 +302,11 @@ void main(void)
             EUSCI_A0->IE |= 0x01;
             EUSCI_A2->IE |= 0x01;
         }
+        //Reading command
         else if (ReadFlag == 1)
         {
             memset(test1.data,0,1000);
+            //Read from flash
             FlashRead(&test1, MemorySlot);
             if(UARTflag==1)
             {
@@ -322,6 +326,7 @@ void main(void)
             EUSCI_A0->IE |= 0x01;
             EUSCI_A2->IE |= 0x01;
         }
+        //Index command
         else if (IndexFlag == 1)
         {
             if(UARTflag==1)
@@ -330,7 +335,7 @@ void main(void)
             {
                 test1.startAddress = i * 50;
                 test1.size = 50;
-
+                //read index from flash
                 SPI_ReadCommand();
                 SPI_Read(&test1);
                 UART0_WriteIndex(&test1);
@@ -344,7 +349,7 @@ void main(void)
             {
                 test1.startAddress = i * 50;
                 test1.size = 50;
-
+                //read index from flash
                 SPI_ReadCommand();
                 SPI_Read(&test1);
                 UART2_WriteIndex(&test1);
@@ -359,9 +364,12 @@ void main(void)
             EUSCI_A0->IE |= 0x01;
             EUSCI_A2->IE |= 0x01;
         }
+        //Memory command
         else if (MemoryFlag == 1)
         {
+            //Pulling last address stored for a poem
             MemoryLeft = FlashMemory(&test1);
+            //Converting address+size to string via sprintf
             sprintf(memoryUART,"%d",MemoryLeft);
             for(i=0;i<4;i++)
             {
@@ -382,17 +390,19 @@ void main(void)
             EUSCI_A0->IE |= 0x01;
             EUSCI_A2->IE |= 0x01;
         }
+        //Erase command
         else if (EraseFlag == 1)
         {
+            //Erase based off of the slot indicated by user
             FlashErase(&test1, EraseIndex);
             EraseFlag = 0;
             EUSCI_A0->IE |= 0x01;
             EUSCI_A2->IE |= 0x01;
         }
-
+        //Clear command
         else if (ClearFlag == 1)
         {
-            //  FlashClear(&poem1);
+            //  Clear all of flash
             char dataClear[1000] = { 0 };
             // memset(dataString, 0, 1000);
             poem1.size = sizeof(dataClear);
